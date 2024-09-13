@@ -44,18 +44,19 @@ class CHIRTSdaily:
         self.datadir = datadir
         self.longitude = longitude
         self.latitude = latitude
+        self.df = None
         (self._px, self._py), (self._longitude, self._latitude) = self.get_nearest_pixel_coords()
 
     def acquire_data(self, force_fetch=False) -> float:
         # check cache
         cache_file = os.path.join(cache_dir, f'{self._px}_{self._py}.parquet')
         if os.path.exists(cache_file) and not force_fetch:
-            return pd.read_parquet(cache_file)
-        
-        # fetch data
-        data = self._acquire_timeseries()
-        data.to_parquet(cache_file)
-        return data
+            self.df = pd.read_parquet(cache_file)
+        else:
+            self.df = self._acquire_timeseries()
+            self.df.to_parquet(cache_file)
+
+        return self.df
 
     def _acquire_timeseries(self, num_threads=60, progress_bar=True) -> pd.DataFrame:
         variables = [v for v in CHIRTSvariable]
@@ -134,6 +135,10 @@ class CHIRTSdaily:
 
         return sorted(years)
 
+    def calculate_monthly_normals(self):
+        data = self.df
+        return data.groupby(data.index.month).mean()
+
 
 if __name__ == '__main__':
     from time import time
@@ -146,3 +151,5 @@ if __name__ == '__main__':
 
     elapsed = time() - t0
     print(f'Time elapsed: {elapsed:.2f} seconds')
+
+    print(chirts.calculate_monthly_normals())
